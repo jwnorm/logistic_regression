@@ -1,0 +1,316 @@
+---
+title: "Homework #3: Generalized Linear Regression"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+**Jacob Norman\
+2024-11-02**
+
+This is the third assignment for the course *ISE537: Statistical Models for Systems Analytics in Industrial Engineering*. The topic of this assignment is generalized linear regression, including:
+
+-   Concepts
+
+-   Fitting
+
+-   Inference
+
+-   Goodness of Fit
+
+-   Prediction
+
+## Problem 1
+
+### True/False/Multiple Choice
+
+This section covers true or false and multiple choice questions concerning generalized linear regression, specifically logistic regression and poisson regression.
+
+| **Q1**  | **Q2**  | **Q3**  | **Q4**  | **Q5**  | **Q6**  | **Q7**  | **Q8**  |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+| T       | F\*     | T       | T       | F       | F       | F       | F\*     |
+| **Q9**  | **Q10** | **Q11** | **Q12** | **Q13** | **Q14** | **Q15** | **Q16** |
+| F       | F       | F\*     | T       | T\*     | T\*     | F       | T       |
+| **Q17** | **Q18** | **Q19** | **Q20** | **Q21** | **Q22** | **Q23** |         |
+| F       | C       | C       | C       | A       | D       | A       |         |
+
+## Problem 2
+
+This next section involves working through a generalized linear regression model from end-to-end, as we did previously with multiple regression. This time, we will be investigating employment data to determine whether employees will stay or leave a company. The supplied file includes the following columns:
+
+-   `Age Group`: Ranges from 1 to 9 and corresponds to age range in 10 year bins
+
+-   `Gender`: 1=Male, 0=Female
+
+-   `Tenure`: Number of years with the company
+
+-   `Num Of Products`: Number of products owned
+
+-   `Is Active Member`: 1=Active, 0=Inactive
+
+-   `Staying`: Fraction of employees that stayed with the company
+
+Before we begin, let’s load the required packages for this analysis:
+
+```{r}
+#install.package("tidyverse")
+library(tidyverse)
+```
+
+### Question 1. Fitting a Model
+
+Next, let's read in our data as a `tibble`:
+
+```{r}
+# read in data as tibble
+data <- read_csv("data/hw4_data.csv")
+
+# create new column for response variable
+data$Staying <- data$Stay / data$Employees
+
+# display tibble sumary
+summary(data)
+```
+
+We will now train a logistic regression model to predict `Staying` based on `Num Of Products`. This will be our initial model.
+
+```{r}
+model1 <- glm(Staying ~ `Num Of Products`, binomial, data, weights = Employees)
+b1 <- coef(model1)[2]
+summary(model1)
+```
+
+The parameters of the model are:
+
+-   $\hat\beta_0$, which corresponds to the `Intercept` and has an estimated value of 2.1457
+
+-   $\hat\beta_1$, which corresponds to `Num Of Products` and has an estimated value of -1.7668
+
+The equation for the odds of staying is:
+
+$$
+\frac{p}{1-p}=\exp(2.1457-1.7668x_\text{Num Of Products})
+$$
+
+The estimated coefficient for `Num Of Products` can be interpreted in either of the following ways:
+
+-   **Log-Odds:** The log odds of staying decrease by `r round(b1 * -1, 4)` for each additional product the company has.
+
+-   **Odds:** The odds of staying increase by `r round(exp(b1), 4)` for each additional product a company has.
+
+### Question 2. Inference
+
+Now let's test run a 90% confidence interval for $\hat\beta_1$.
+
+```{r}
+confint(model1, level = 0.9)
+```
+
+```{r}
+# get test stat and df
+gstat <- model1$null.deviance - deviance(model1)
+df <- length(coef(model1)) - 1
+
+# get p-value
+p_value <- 1 - pchisq(gstat, df)
+print(p_value)
+```
+
+Since the p-value of the overall regression is approximately equal to zero, `model1` is significant overall.
+
+> **Note:** Question 2c is the same as Question 1c
+
+### Question 3. Goodness of Fit
+
+```{r}
+# determine df
+df1 <- nrow(data) - length(coef(model1))
+
+# calculate deviance and perason residuals
+deviance1 <- residuals(model1, "deviance")
+pearson1 <- residuals(model1, "pearson")
+
+# calculate test statistic
+dev1_tval <- sum(deviance1^2)
+pear1_tval <- sum(pearson1^2)
+
+# calculate p-value
+dev1_pval <- 1 - pchisq(dev1_tval, df1)
+pear1_pval <- 1 - pchisq(pear1_tval, df1)
+
+# display output in tibble
+tibble(Type = c("Deviance", "Pearson"),
+       `Test Stat` = c(dev1_tval, pear1_tval),
+       `p-value` = c(dev1_pval, pear1_pval))
+```
+
+For both the deviance and pearson residuals, we reject the null hypothesis that the logistic regression model fits the data well since both p-values are near zero. This contradicts what we found in the previous question when we determined that the overall model is significant.
+
+Let's investigate the deviance residuals visually to check goodness of fit and model assumptions.
+
+```{r}
+ggplot() +
+  geom_histogram(aes(deviance1), bins = 10) + 
+  labs(title = "Hisogram: model1", 
+       x = "Deviance Residual")
+```
+
+The histogram of the deviance residuals appears somewhat normal. The plot seems to be centered on zero and has a vague bell shape. We can investigate further with a QQ-Plot:
+
+```{r}
+ggplot(mapping = aes(sample = deviance1)) +
+  stat_qq(alpha = 0.5) +
+  stat_qq_line(color = "blue", linewidth = 1.1) +
+  labs(title = "QQ-Plot: model1", x = "Theoretical", y = "Sample")
+```
+
+The QQ-Plot confirms that the deviance residuals are approximately normally distributed. The tail ends deviate from normality slightly, which makes sense given our histogram.
+
+Let's also check the linearity assumption. We would expect `Num Of Products` to linear with respect to the log odds of `Staying`.
+
+```{r}
+data$logit_staying <- log(data$`Staying` / (1 - data$`Staying`))
+
+ggplot(data) +
+  geom_point(aes(`Num Of Products`, logit_staying), alpha=0.5) +
+  labs(title = "Linearity: model1", 
+       x = 'Number of Products', y = "Logit of Staying")
+```
+
+It is difficult to assess this assumption since there are only two observed values for the `Num Of Products`: 1 or 2. Since it is only two points, of course we can say it is linear.
+
+Next, we will determine if `model1` is overdispersed by estimating $\phi$:
+
+```{r}
+disp1<- dev1_tval / df1
+disp1
+```
+
+Since $\hat\phi>2$, we conclude that `model1` is overdispersed.
+
+### Question 4. Fitting the Full Model
+
+We will now expand our model to include all available predictors.
+
+```{r}
+model2 <- glm(Staying ~ `Age Group` + Gender + Tenure + `Num Of Products` + `Is Active Member`, 
+              binomial, data, weights = Employees)
+summary(model2)
+```
+
+Based on `model2`, the equation for the probability of staying is:
+
+$$
+p=\frac{\exp(-1.9033 + 1.2290x_\text{Age} - 0.5514x_\text{Gender} - 0.0036x_\text{Tenure} - 1.4288x_\text{Num Of Products} - 0.08715x_\text{Is Active Member}))}
+{1 - \exp(-1.9033 + 1.2290x_\text{Age} - 0.5514x_\text{Gender} - 0.0036x_\text{Tenure} - 1.4288x_\text{Num Of Products} - 0.08715x_\text{Is Active Member}))}
+$$
+
+Here are meaningful interpretations of two model coefficients:
+
+-   $\hat\beta_1$, `Age Group`: The log odds of staying is increased by 1.2290 for every 10 years of age an employee has, all other predictors held constant.
+
+-   $\hat\beta_5$, `Is Active Member`: The log odds of staying is decreased by 0.8715 if an employee is an active member versus if they are an inactive member, all other predictors held constant.
+
+The p-value for $\hat\beta_5$, `Is Active Member`, is near zero, which means that it is significant given the other variables in `model2`.
+
+We will now repeat the goodness of fit analysis that we performed on `model1` for the full model, starting with the hypothesis test for the deviance and pearson residuals.
+
+```{r}
+# determine df
+df2 <- nrow(data) - length(coef(model2))
+
+# calculate deviance and perason residuals
+deviance2 <- residuals(model2, "deviance")
+pearson2 <- residuals(model2, "pearson")
+
+# calculate test statistic
+dev2_tval <- sum(deviance2^2)
+pear2_tval <- sum(pearson2^2)
+
+# calculate p-value
+dev2_pval <- 1 - pchisq(dev2_tval, df2)
+pear2_pval <- 1 - pchisq(pear2_tval, df2)
+
+# display output in tibble
+tibble(Type = c("Deviance", "Pearson"),
+       `Test Stat` = c(dev2_tval, pear2_tval),
+       `p-value` = c(dev2_pval, pear2_pval))
+```
+
+We can see that the p-values under both residuals increased by a significance level of $\alpha=0.05$, meaning that we fail to reject the null hypothesis and conclude that `model2` is a good fit. Let's us continue our investigation with a visual analysis.
+
+```{r}
+ggplot() +
+  geom_histogram(aes(deviance2), bins = 10) + 
+  labs(title = "Hisogram: model2", 
+       x = "Deviance Residual")
+```
+
+Similarly to the histogram for `model1`, we can see that deviance residuals appear approximately normally distributed. The left tail is not as "full" as we would expect, but there is a bell shape and they are centered at zero.
+
+```{r}
+ggplot(mapping = aes(sample = deviance2)) +
+  stat_qq(alpha = 0.5) +
+  stat_qq_line(color = "blue", linewidth = 1.1) +
+  labs(title = "QQ-Plot: model2", x = "Theoretical", y = "Sample")
+```
+
+This QQ-Plot looks even better than what we saw with `model1`. The extreme values are closer to what blue line, indicating that `model2` is more normal than `model1`.
+
+```{r}
+# list of quantitiative predictors
+predictors <- c("Age Group", "Gender", "Tenure", 
+                "Num Of Products", "Is Active Member")
+
+# convert data from wide to long format in order to facet
+data_melted <- data %>%
+                  select(-c(Stay, Employees, Staying)) %>%
+                  pivot_longer(cols = all_of(predictors),
+                               names_to = "Measure", 
+                               values_to = "Value"
+                  )
+
+# create plot
+ggplot(data_melted) +
+  geom_point(aes(Value, logit_staying), alpha=0.5) + 
+  facet_wrap(~ Measure) +
+  labs(title = "Linearity: model2", y = "Logit of Staying")
+```
+
+The linearity assumption is still difficult to properly assess for the same reasons we noted with `model1`. There do not seem to be any obvious problems with the relationship between the logit of staying and any of the predictors. Perhaps there is a higher order relationship with `Age Group`, but it is hard to be definitive. Overall, we can say the linearity assumption holds.
+
+### Question 5. Prediction
+
+Suppose that there is an employee with the following characteristics:
+
+-   `Age Group` = 2
+
+-   `Gender` = 0
+
+-   `Tenure` = 2
+
+-   `Num Of Products` = 2
+
+-   `Is Active Member` = 1
+
+Let's predict their probability of staying under both models:
+
+```{r}
+# create tibble of test data
+test <- tibble(`Age Group` = 2,
+               Gender = 0,
+               Tenure = 2,
+               `Num Of Products` = 2,
+               `Is Active Member` = 1)
+
+# generate predicted probablities
+pred1 <- predict(model1, test, type = "response")
+pred2 <- predict(model2, test, type = "response")
+
+# display results in tibble
+tibble(Model = c("model1", "model2"),
+       Probablity = c(pred1, pred2))
+```
+
+It seems that `model1` predicts that an employee with the above traits has a 20 percent chance of staying, while `model2` predicts only a 4 percent chance of staying. Again, `model1` is only considering `Num of Products` while `model2` is considering all of the characteristics. We determined that the full model is a better fit to our data and thus should be more confident in the prediction of the employee under this model.
