@@ -29,9 +29,9 @@ This section covers true or false and multiple choice questions concerning gener
 
 | **Q1**  | **Q2**  | **Q3**  | **Q4**  | **Q5**  | **Q6**  | **Q7**  | **Q8**  |
 |---------|---------|---------|---------|---------|---------|---------|---------|
-| T       | F\*     | T       | T       | F       | F       | F       | F\*     |
+| T       | F       | T       | T       | F       | F       | F       | F       |
 | **Q9**  | **Q10** | **Q11** | **Q12** | **Q13** | **Q14** | **Q15** | **Q16** |
-| F       | F       | F\*     | T       | T\*     | T\*     | F       | T       |
+| F       | F       | F       | T       | T       | T       | F       | T       |
 | **Q17** | **Q18** | **Q19** | **Q20** | **Q21** | **Q22** | **Q23** |         |
 | F       | C       | C       | C       | A       | D       | A       |         |
 
@@ -119,7 +119,7 @@ print(p_value)
 
 Since the p-value of the overall regression is approximately equal to zero, `model1` is significant overall.
 
-> **Note:** Question 2c is the same as Question 1c
+> **Note:** Question 2c is the same as Question 1c. See above for the answer.
 
 ### Question 3. Goodness of Fit
 
