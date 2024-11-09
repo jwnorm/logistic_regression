@@ -95,9 +95,9 @@ $$
 
 The estimated coefficient for `Num Of Products` can be interpreted in either of the following ways:
 
--   **Log-Odds:** The log odds of staying decrease by `r round(b1 * -1, 4)` for each additional product the company has.
+-   **Log-Odds:** The log of the odds of staying decrease by `r round(b1 * -1, 4)` for each additional product the employee owns.
 
--   **Odds:** The odds of staying increase by `r round(exp(b1), 4)` for each additional product a company has.
+-   **Odds:** The odds of staying increase by `r round(exp(b1), 4)` for each additional product the employee owns.
 
 ### Question 2. Inference
 
@@ -127,7 +127,7 @@ Since the p-value of the overall regression is approximately equal to zero, `mod
 # determine df
 df1 <- nrow(data) - length(coef(model1))
 
-# calculate deviance and perason residuals
+# calculate deviance and pearson residuals
 deviance1 <- residuals(model1, "deviance")
 pearson1 <- residuals(model1, "pearson")
 
@@ -152,7 +152,7 @@ Let's investigate the deviance residuals visually to check goodness of fit and m
 ```{r}
 ggplot() +
   geom_histogram(aes(deviance1), bins = 10) + 
-  labs(title = "Hisogram: model1", 
+  labs(title = "Histogram: model1", 
        x = "Deviance Residual")
 ```
 
@@ -167,7 +167,7 @@ ggplot(mapping = aes(sample = deviance1)) +
 
 The QQ-Plot confirms that the deviance residuals are approximately normally distributed. The tail ends deviate from normality slightly, which makes sense given our histogram.
 
-Let's also check the linearity assumption. We would expect `Num Of Products` to linear with respect to the log odds of `Staying`.
+Let's also check the linearity assumption. We would expect `Num Of Products` to be linear with respect to the log of the odds of `Staying`.
 
 ```{r}
 data$logit_staying <- log(data$`Staying` / (1 - data$`Staying`))
@@ -202,15 +202,15 @@ summary(model2)
 Based on `model2`, the equation for the probability of staying is:
 
 $$
-p=\frac{\exp(-1.9033 + 1.2290x_\text{Age} - 0.5514x_\text{Gender} - 0.0036x_\text{Tenure} - 1.4288x_\text{Num Of Products} - 0.08715x_\text{Is Active Member}))}
-{1 - \exp(-1.9033 + 1.2290x_\text{Age} - 0.5514x_\text{Gender} - 0.0036x_\text{Tenure} - 1.4288x_\text{Num Of Products} - 0.08715x_\text{Is Active Member}))}
+p=\frac{\exp(-1.9033 + 1.2290x_\text{Age} - 0.5514x_\text{Gender} - 0.0036x_\text{Tenure} - 1.4288x_\text{Num Of Products} - 0.8715x_\text{Is Active Member}))}
+{1 + \exp(-1.9033 + 1.2290x_\text{Age} - 0.5514x_\text{Gender} - 0.0036x_\text{Tenure} - 1.4288x_\text{Num Of Products} - 0.8715x_\text{Is Active Member}))}
 $$
 
 Here are meaningful interpretations of two model coefficients:
 
--   $\hat\beta_1$, `Age Group`: The log odds of staying is increased by 1.2290 for every 10 years of age an employee has, all other predictors held constant.
+-   $\hat\beta_1$, `Age Group`: The odds of staying increases by 3.4179 for every 10 years of age an employee has, all other predictors held constant.
 
--   $\hat\beta_5$, `Is Active Member`: The log odds of staying is decreased by 0.8715 if an employee is an active member versus if they are an inactive member, all other predictors held constant.
+-   $\hat\beta_5$, `Is Active Member`: The odds of staying increases by 0.4183 if an employee is an active member versus if they are an inactive member, all other predictors held constant.
 
 The p-value for $\hat\beta_5$, `Is Active Member`, is near zero, which means that it is significant given the other variables in `model2`.
 
@@ -220,7 +220,7 @@ We will now repeat the goodness of fit analysis that we performed on `model1` fo
 # determine df
 df2 <- nrow(data) - length(coef(model2))
 
-# calculate deviance and perason residuals
+# calculate deviance and pearson residuals
 deviance2 <- residuals(model2, "deviance")
 pearson2 <- residuals(model2, "pearson")
 
@@ -238,7 +238,7 @@ tibble(Type = c("Deviance", "Pearson"),
        `p-value` = c(dev2_pval, pear2_pval))
 ```
 
-We can see that the p-values under both residuals increased by a significance level of $\alpha=0.05$, meaning that we fail to reject the null hypothesis and conclude that `model2` is a good fit. Let's us continue our investigation with a visual analysis.
+We can see that the p-values under both residuals are now greater than a significance level of $\alpha=0.05$, meaning that we fail to reject the null hypothesis and conclude that `model2` is a good fit. Let's us continue our investigation with a visual analysis.
 
 ```{r}
 ggplot() +
@@ -256,7 +256,7 @@ ggplot(mapping = aes(sample = deviance2)) +
   labs(title = "QQ-Plot: model2", x = "Theoretical", y = "Sample")
 ```
 
-This QQ-Plot looks even better than what we saw with `model1`. The extreme values are closer to what blue line, indicating that `model2` is more normal than `model1`.
+This QQ-Plot looks even better than what we saw with `model1`. The extreme values are closer to the blue line, indicating that `model2` is more normal than `model1`. The normality assumption holds.
 
 ```{r}
 # list of quantitiative predictors
@@ -279,6 +279,15 @@ ggplot(data_melted) +
 ```
 
 The linearity assumption is still difficult to properly assess for the same reasons we noted with `model1`. There do not seem to be any obvious problems with the relationship between the logit of staying and any of the predictors. Perhaps there is a higher order relationship with `Age Group`, but it is hard to be definitive. Overall, we can say the linearity assumption holds.
+
+Moving on, let's calculate the estimated dispersion parameter, $\hat\phi$, for `model2`:
+
+```{r}
+disp2<- dev2_tval / df2
+disp2
+```
+
+Since $\hat\phi < 2$, we can conclude that the full model is *not* overdispersed.
 
 ### Question 5. Prediction
 
